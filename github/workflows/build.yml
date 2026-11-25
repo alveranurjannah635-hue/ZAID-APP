@@ -1,0 +1,65 @@
+
+name: Build ZAID CLIENT
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.8'
+
+      - name: Extract Source
+        run: |
+          mkdir extracted
+          unzip -q ZAID-CLIENT-source-fixed.zip -d extracted
+
+      - name: Find Gradle Project
+        run: |
+          PROJECT=$(find extracted -name settings.gradle -o -name settings.gradle.kts | head -n 1)
+
+          if [ -z "$PROJECT" ]; then
+            PROJECT=$(find extracted -name build.gradle -o -name build.gradle.kts | head -n 1)
+          fi
+
+          if [ -z "$PROJECT" ]; then
+            echo "Gradle project not found!"
+            exit 1
+          fi
+
+          echo "PROJECT_DIR=$(dirname "$PROJECT")" >> $GITHUB_ENV
+
+      - name: Build JAR
+        run: |
+          cd "$PROJECT_DIR"
+
+          if [ -f gradlew ]; then
+            chmod +x gradlew
+            ./gradlew build --no-daemon
+          else
+            gradle build --no-daemon
+          fi
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZAID-CLIENT-JAR
+          path: '**/build/libs/*.jar'
+          if-no-files-found: error
